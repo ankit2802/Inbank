@@ -37,17 +37,20 @@ netflix_data_file = max(glob.glob(os.path.join(directory_netflix_data_input, '*.
 # Read the CSV file into a DataFrame
 df1 = pd.read_csv(netflix_data_file)
 
+# Add the 'RecordDate' column to the DataFrame with current date
+df1['RecordDate'] = datetime.now().date()
+
 # Convert the DataFrame to a list of tuples for insertion
 data = [tuple(row) for row in df1.values]
 
 # Prepare the query for inserting data
 insert_query = '''
-    INSERT INTO NetflixSubscription (
+    INSERT INTO DWLoad.NetflixSubscription (
         UserID, SubscriptionType, MonthlyRevenue, JoinDate,
         LastPaymentDate, Country, Age, Gender, Device,
         PlanDuration, ActiveProfiles, HouseholdProfileInd,
-        MoviesWatched, SeriesWatched
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        MoviesWatched, SeriesWatched, RecordDate
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 '''
 
 # Execute the insert query with the data
