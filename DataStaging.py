@@ -12,7 +12,7 @@ def read_data_from_table(table_name, conn):
     # Prepare the query to select data for the current month
     select_query = f'''
                 SELECT *
-                FROM NetflixSubscription
+                FROM DWLoad.NetflixSubscription
                 WHERE MONTH(RecordDate) = {current_month}
                 AND YEAR(RecordDate) = {current_year}
             '''
@@ -155,8 +155,6 @@ if __name__ == "__main__":
     truncate_tables(conn)
 
     # Insert the data into the table
-    #    insert_data_DimSubscription(conn,source_data_df)
-    #    insert_data_DimDevice(conn, source_data_df)
     insert_data_DimCustomers(conn, source_data_df)
     insert_data_DimSubscription(conn, source_data_df)
     insert_data_FactCustomerNetflixMetrices(conn, source_data_df)
