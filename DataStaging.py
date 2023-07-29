@@ -5,9 +5,18 @@ import pandas as pd
 
 
 def read_data_from_table(table_name, conn):
-    # Create a DataFrame by fetching data from the table
-    query = f"SELECT * FROM {table_name};"
-    df = pd.read_sql_query(query, conn)
+    # Get the current month and year
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+
+    # Prepare the query to select data for the current month
+    select_query = f'''
+                SELECT *
+                FROM NetflixSubscription
+                WHERE MONTH(RecordDate) = {current_month}
+                AND YEAR(RecordDate) = {current_year}
+            '''
+    df = pd.read_sql_query(select_query, conn)
 
     return df
 
