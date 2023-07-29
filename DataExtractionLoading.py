@@ -37,6 +37,9 @@ netflix_data_file = max(glob.glob(os.path.join(directory_netflix_data_input, '*.
 # Read the CSV file into a DataFrame
 df1 = pd.read_csv(netflix_data_file)
 
+# Filter out records with NULL UserId
+df1 = df1.dropna(subset=['User ID'])
+
 # Add the 'RecordDate' column to the DataFrame with current date
 df1['RecordDate'] = datetime.now().date()
 
@@ -54,7 +57,13 @@ insert_query = '''
 '''
 
 # Execute the insert query with the data
-cursor.executemany(insert_query, data)
+try:
+    cursor.executemany(insert_query, data)
+    conn.commit()
+    print("Data inserted successfully ")
+except mysql.connector.IntegrityError as e:
+    print(f"Error: {e}")
+    conn.rollback()
 
 conn.commit()
 conn.close()

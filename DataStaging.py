@@ -41,8 +41,10 @@ def insert_data_DimCustomers(conn, source_data_df):
                                                  'UserID',
                                                  'Country',
                                                  'Age',
-                                                 'Gender'
+                                                 'Gender',
+                                                 'RecordDate'
                                              ]]
+
 
     # Add a new column 'YearOfBirth' to the DataFrame by calculating it from the 'Age'
     current_year = datetime.now().year
@@ -58,15 +60,22 @@ def insert_data_DimCustomers(conn, source_data_df):
 
     # Generate the INSERT INTO query with placeholders for the values
     insert_query = (
-        f"INSERT INTO {tableName} (CustomerID, Country, Gender, YearOfBirth) "
-        f"VALUES (%s, %s, %s, %s);"
+        f"INSERT INTO {tableName} (CustomerID, Country, Gender, RecordDate, YearOfBirth) "
+        f"VALUES (%s, %s, %s, %s, %s);"
     )
 
     # Create a list of tuples containing the values to be inserted
     values_list = [tuple(row) for _, row in required_columns.iterrows()]
 
     # Perform the bulk insert
-    cursor.executemany(insert_query, values_list)
+    # Execute the insert query with the data
+    try:
+        cursor.executemany(insert_query, values_list)
+        conn.commit()
+        print("Data inserted successfully for DWStage.DimCustomers")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
 
     conn.commit()
 
@@ -80,7 +89,8 @@ def insert_data_FactCustomerNetflixMetrices(conn, source_data_df):
                                                  'HouseholdProfileInd',
                                                  'MoviesWatched',
                                                  'SeriesWatched',
-                                                 'LastPaymentDate'
+                                                 'LastPaymentDate',
+                                                 'RecordDate'
                                              ]]
 
     # table to be inserted data in
@@ -90,15 +100,23 @@ def insert_data_FactCustomerNetflixMetrices(conn, source_data_df):
 
     # Generate the INSERT INTO query with placeholders for the values
     insert_query = (
-        f"INSERT INTO {tableName} (CustomerID, MonthlyRevenue, ActiveProfiles, HouseholdProfileInd, MoviesWatched, SeriesWatched, LastPaymentDate)"
-        f"VALUES (%s, %s, %s, %s, %s, %s, %s);"
+        f"INSERT INTO {tableName} (CustomerID, MonthlyRevenue, ActiveProfiles, HouseholdProfileInd, MoviesWatched, SeriesWatched, LastPaymentDate, RecordDate)"
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
     )
 
     # list of tuples containing the values to be inserted
     values_list = [tuple(row) for _, row in required_columns.iterrows()]
 
+
     # Perform the bulk insert
-    cursor.executemany(insert_query, values_list)
+    # Execute the insert query with the data
+    try:
+        cursor.executemany(insert_query, values_list)
+        conn.commit()
+        print("Data inserted successfully for DWStage.FactCustomerNetflixMetrics")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
 
     conn.commit()
 
@@ -108,11 +126,11 @@ def insert_data_DimSubscription(conn, source_data_df):
                                                  'UserID',
                                                  'SubscriptionType',
                                                  'PlanDuration',
+                                                 'Device',
                                                  'JoinDate',
-                                                 'Device'
+                                                 'RecordDate'
                                              ]]
 
-    print(required_columns)
     # table to be inserted data in
     tableName = "DWStage.DimSubscription"
 
@@ -120,15 +138,22 @@ def insert_data_DimSubscription(conn, source_data_df):
 
     # Generate the INSERT INTO query with placeholders for the values
     insert_query = (
-        f"INSERT INTO {tableName} (CustomerID, SubscriptionType, SubscriptionDuration, JoiningDate, Device)"
-        f"VALUES (%s, %s, %s, %s, %s);"
+        f"INSERT INTO {tableName} (CustomerID, SubscriptionType, SubscriptionDuration, Device, JoiningDate, RecordDate)"
+        f"VALUES ( %s,%s, %s, %s, %s, %s);"
     )
 
     # list of tuples containing the values to be inserted
     values_list = [tuple(row) for _, row in required_columns.iterrows()]
 
     # Perform the bulk insert
-    cursor.executemany(insert_query, values_list)
+    # Execute the insert query with the data
+    try:
+        cursor.executemany(insert_query, values_list)
+        conn.commit()
+        print("Data inserted successfully for DWStage.DimSubscription")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
 
     conn.commit()
 
@@ -150,6 +175,26 @@ if __name__ == "__main__":
 
     # Read data from the table into a DataFrame
     source_data_df = read_data_from_table(table_name, conn)
+
+    # Define default values
+    defaults = {
+        'SubscriptionType': 'N/D',
+        'MonthlyRevenue': 0,
+        'JoinDate': '1900-01-01',
+        'LastPaymentDate': '1900-01-01',
+        'Country': 'N/D',
+        'Age': 0,
+        'Gender': 'N/D',
+        'Device': 'N/D',
+        'PlanDuration': 'N/D',
+        'ActiveProfiles': 0,
+        'HouseholdProfileInd': 0,
+        'MoviesWatched': 0,
+        'SeriesWatched': 0
+    }
+
+    # Fill NULL values with default values
+    source_data_df.fillna(value=defaults, inplace=True)
 
     # Truncate the staging tables before inserting the data for next run
     truncate_tables(conn)
