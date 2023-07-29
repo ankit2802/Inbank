@@ -40,18 +40,11 @@ def insert_data_DimCustomers(conn, source_data_df):
     required_columns = source_data_df.loc[:, [
                                                  'UserID',
                                                  'Country',
-                                                 'Age',
                                                  'Gender',
+                                                 'YearOfBirth',
+                                                 'JoinDate',
                                                  'RecordDate'
                                              ]]
-
-
-    # Add a new column 'YearOfBirth' to the DataFrame by calculating it from the 'Age'
-    current_year = datetime.now().year
-    required_columns['YearOfBirth'] = current_year - required_columns['Age']
-
-    # Drop the 'Age' column from the DataFrame
-    required_columns.drop(columns=['Age'], inplace=True)
 
     # table to be inserted data in
     tableName = "DWStage.DimCustomers"
@@ -60,8 +53,8 @@ def insert_data_DimCustomers(conn, source_data_df):
 
     # Generate the INSERT INTO query with placeholders for the values
     insert_query = (
-        f"INSERT INTO {tableName} (CustomerID, Country, Gender, RecordDate, YearOfBirth) "
-        f"VALUES (%s, %s, %s, %s, %s);"
+        f"INSERT INTO {tableName} (CustomerID, Country, Gender,YearOfBirth,JoiningDate, RecordDate ) "
+        f"VALUES (%s, %s, %s, %s, %s, %s);"
     )
 
     # Create a list of tuples containing the values to be inserted
@@ -195,6 +188,12 @@ if __name__ == "__main__":
 
     # Fill NULL values with default values
     source_data_df.fillna(value=defaults, inplace=True)
+    # Add a new column 'YearOfBirth' to the DataFrame by calculating it from the 'Age'
+    current_year = datetime.now().year
+    source_data_df['YearOfBirth'] = current_year - source_data_df['Age']
+
+    # Drop the 'Age' column from the DataFrame
+    source_data_df.drop(columns=['Age'], inplace=True)
 
     # Truncate the staging tables before inserting the data for next run
     truncate_tables(conn)
