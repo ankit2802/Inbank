@@ -21,15 +21,68 @@ def read_data_from_stage_dim_customers(conn):
     except mysql.connector.Error as e:
         print(f"Error: {e}")
 
+def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscription):
+    cursor = conn.cursor()
+    insert_query = (
+        "INSERT INTO DWSkey.DimSubscription (CustomerID, SubscriptionDuration, SubscriptionType, "
+        "JoiningDate, Device, RecordDate, ValidFromDate, ValidToDate, IsCurrent) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+    )
+    update_query = (
+        "UPDATE DWSkey.DimSubscription "
+        "SET ValidToDate = %s, IsCurrent = %s "
+        "WHERE CustomerID = %s AND IsCurrent IS NULL;"
+    )
+
+    for _, row in dataframe_for_stage_dim_subscription.iterrows():
+        customer_id = row['CustomerID']
+        subscription_duration = row['SubscriptionDuration']
+        subscription_type = row['SubscriptionType']
+        joining_date = row['JoiningDate']
+        device = row['Device']
+        record_date = row['RecordDate']
+        valid_from_date = joining_date
+        valid_to_date = '9999-12-31'  # Set to default end date (e.g., '9999-12-31') for new records
+        is_current = '1'  # Set to default value (e.g., 'TRUE') for new records
+
+        cursor.execute(
+            "SELECT * FROM DWSkey.DimSubscription WHERE CustomerID = %s AND IsCurrent IS NULL;",
+            (customer_id,)
+        )
+        existing_record = cursor.fetchone()
+
+        if existing_record:
+            # Check if any of the fields have different values
+            existing_values = existing_record[1:-3]  # Exclude RecordKey, ValidToDate, and IsCurrent columns
+            new_values = (subscription_duration, subscription_type, joining_date, device)
+            if existing_values != new_values:
+                # Update the existing record with ValidToDate and IsCurrent
+                record_key = existing_record[0]
+                cursor.execute(update_query, (datetime.now() - timedelta(days=1), '0', record_key))
+                # Insert a new record with valid_from_date as current date and default values for ValidToDate and IsCurrent
+                values = (customer_id, subscription_duration, subscription_type, joining_date, device, record_date,
+                          datetime.now(), valid_to_date, is_current)  # Set ValidFromDate to current date
+                cursor.execute(insert_query, values)
+            else:
+                # No changes in the fields, keep the existing record as is
+                pass
+        else:
+            # Insert a new record with default values for ValidToDate and IsCurrent
+            values = (customer_id, subscription_duration, subscription_type, joining_date, device, record_date,
+                      valid_from_date, valid_to_date, is_current)  # Set ValidFromDate to current date
+            cursor.execute(insert_query, values)
+
+    conn.commit()
+
 def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers):
     cursor = conn.cursor()
     insert_query = (
         "INSERT INTO DWSkey.DimCustomers (CustomerID, Country, Gender, YearOfBirth, JoiningDate, RecordDate, "
-        "ValidFromDate, ValidToDateKey, IsCurrent) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        "ValidFromDate, ValidToDate, IsCurrent) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
     )
     update_query = (
         "UPDATE DWSkey.DimCustomers "
-        "SET ValidToDateKey = %s, IsCurrent = %s "
+        "SET ValidToDate = %s, IsCurrent = %s "
         "WHERE CustomerID = %s AND IsCurrent IS NULL;"
     )
 
@@ -41,7 +94,7 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
         joining_date = row['JoiningDate']
         record_date = row['RecordDate']
         valid_from_date = joining_date
-        valid_to_date_key = '9999-12-31'  # Set to default end date (e.g., '9999-12-31') for new records
+        valid_to_date = '9999-12-31'  # Set to default end date (e.g., '9999-12-31') for new records
         is_current = '1'  # Set to default value (e.g., 'TRUE') for new records
 
         cursor.execute(
@@ -52,23 +105,23 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
 
         if existing_record:
             # Check if any of the fields have different values
-            existing_values = existing_record[1:-4]  # Exclude RecordKey, ValidToDateKey, and IsCurrent columns
+            existing_values = existing_record[1:-4]  # Exclude RecordKey, ValidToDate, and IsCurrent columns
             new_values = (country, gender, year_of_birth, joining_date)
             if existing_values != new_values:
-                # Update the existing record with ValidToDateKey and IsCurrent
+                # Update the existing record with ValidToDate and IsCurrent
                 record_key = existing_record[0]
                 cursor.execute(update_query, (datetime.now() - timedelta(days=1), '0', record_key))
-                # Insert a new record with valid_from_date as current date and default values for ValidToDateKey and IsCurrent
+                # Insert a new record with valid_from_date as current date and default values for ValidToDate and IsCurrent
                 values = (customer_id, country, gender, year_of_birth, joining_date, record_date,
-                          datetime.now(), valid_to_date_key, is_current)  # Set ValidFromDate to current date
+                          datetime.now(), valid_to_date, is_current)  # Set ValidFromDate to current date
                 cursor.execute(insert_query, values)
             else:
                 # No changes in the fields, keep the existing record as is
                 pass
         else:
-            # Insert a new record with default values for ValidToDateKey and IsCurrent
+            # Insert a new record with default values for ValidToDate and IsCurrent
             values = (customer_id, country, gender, year_of_birth, joining_date, record_date,
-                      valid_from_date, valid_to_date_key, is_current)  # Set ValidFromDate to current date
+                      valid_from_date, valid_to_date, is_current)  # Set ValidFromDate to current date
             cursor.execute(insert_query, values)
 
     conn.commit()
@@ -84,9 +137,12 @@ if __name__ == "__main__":
     }
 
     conn = mysql.connector.connect(**db_config)
-    dataframe_for_stage_dim_customers = read_data_from_stage_dim_customers(conn)
 
-#    result = read_data_from_stage_dim_subscription(conn)
-    data_for_dwskey_dim_customers = insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
-#    print(data_for_dwskey_dim_customers)
+    #Function call for reading data from staging tables
+    dataframe_for_stage_dim_customers = read_data_from_stage_dim_customers(conn)
+    dataframe_for_stage_dim_subscription = read_data_from_stage_dim_subscription(conn)
+
+    #Function call for data insertion
+    insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
+    insert_data_to_dwskey_dim_subscription(conn,dataframe_for_stage_dim_subscription)
 
