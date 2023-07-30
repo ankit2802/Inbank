@@ -2,6 +2,18 @@ import mysql.connector
 import pandas as pd
 from datetime import datetime
 
+def read_data_dwstage_fact_customer_netflix_metrics(conn):
+    select_query = "SELECT * FROM DWStage.FactCustomerNetflixMetrics;"
+
+    try:
+        # Use pandas read_sql to fetch data into a DataFrame
+        df_cnf_fact_customer = pd.read_sql(select_query, conn)
+        return df_cnf_fact_customer
+
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
+        return None
+
 def read_data_DimDeviceType(conn):
     select_query = "SELECT * FROM CNF.DimDeviceType;"
 
@@ -244,6 +256,68 @@ def insert_data_to_dwconform_dim_subscription(conn, df_skey_dim_subscription, df
 
     conn.commit()
 
+def insert_data_to_dwconform_fact_customer_netflix_metrics(conn, df_skey_fact_customer_metrics, df_cnf_dim_date):
+    # Step 1: Getting LastPaymentDateID into the DataFrame from DimDate
+    fact_customer_metrics_dimdate_LastPaymentDate = pd.merge(df_skey_fact_customer_metrics, df_cnf_dim_date, left_on='LastPaymentDate', right_on='date', how='inner')
+    # Dropping the extra columns
+    fact_customer_metrics_dimdate_LastPaymentDate.drop(columns=['date'], inplace=True)
+    # Renaming the column as per the need
+    fact_customer_metrics_dimdate_LastPaymentDate.rename(columns={'date_key': 'LastPaymentDateID'}, inplace=True)
+
+    # Step 2: Getting RecordDateKey into the DataFrame from DimDate
+    fact_customer_metrics_dimdate_RecordDate = pd.merge(fact_customer_metrics_dimdate_LastPaymentDate, df_cnf_dim_date, left_on='RecordDate', right_on='date', how='inner')
+    # Dropping the extra columns
+    fact_customer_metrics_dimdate_RecordDate.drop(columns=['date'], inplace=True)
+    # Renaming the column as per the need
+    fact_customer_metrics_dimdate_RecordDate.rename(columns={'date_key': 'RecordDateKey'}, inplace=True)
+
+    # Setting defaults for the fields added in this step:
+    default_values = {
+        'LastPaymentDateID': 0,  # Default value for 'LastPaymentDateID'
+        'RecordDateKey': 0,      # Default value for 'RecordDateKey'
+        # Add more fields and their default values as needed
+    }
+    # Set default values for missing fields in the DataFrame
+    fact_customer_metrics_dimdate_RecordDate.fillna(default_values, inplace=True)
+
+    cursor = conn.cursor()
+    fact_customer_metrics_dimdate_RecordDate = fact_customer_metrics_dimdate_RecordDate.loc[:, [
+        'CustomerID',
+        'MonthlyRevenue',
+        'ActiveProfiles',
+        'HouseholdProfileInd',
+        'MoviesWatched',
+        'SeriesWatched',
+        'LastPaymentDate',
+        'LastPaymentDateID',
+        'RecordDate',
+        'RecordDateKey'
+    ]]
+
+    # List of tuples containing the values to be inserted
+    values_list = [tuple(row) for _, row in fact_customer_metrics_dimdate_RecordDate.iterrows()]
+
+    # Define the INSERT query
+    insert_query = (
+        "INSERT INTO DWConform.FactCustomerNetflixMetrics "
+        "(CustomerID, MonthlyRevenue, ActiveProfiles, HouseholdProfileInd, MoviesWatched, SeriesWatched, "
+        "LastPaymentDate, LastPaymentDateID, RecordDate, RecordDateKey) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+    )
+
+    # Perform the bulk insert
+    # Execute the insert query with the data
+    try:
+        cursor.executemany(insert_query, values_list)
+        conn.commit()
+        print("Data inserted successfully for DWConform.FactCustomerNetflixMetrics")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
+
+    conn.commit()
+
+
 if __name__ == "__main__":
     # connection parameters
     db_config = {
@@ -263,16 +337,16 @@ if __name__ == "__main__":
     pd.set_option('display.max_columns', None)
 
     # Read data from the table into a DataFrame
-#    df_skey_dim_customers = read_data_from_dwskey_dim_customers(conn)
+    df_skey_dim_customers = read_data_from_dwskey_dim_customers(conn)
     df_skey_dim_subscription = read_data_from_dwskey_dim_subscription(conn)
-#    df_stage_dim_subscription = read_data_from_stage_dim_subscription(conn)
+    df_stage_dim_subscription = read_data_from_stage_dim_subscription(conn)
     df_cnf_dim_date = read_data_from_dim_date(conn)
     df_cnf_dim_device = read_data_DimDeviceType(conn)
     df_cnf_dim_subscription = read_data_DimSubscriptionType(conn)
+    df_cnf_fact_customer = read_data_dwstage_fact_customer_netflix_metrics(conn)
 
-
-
-
-#    insert_data_to_dwconform_dim_customers(conn, df_skey_dim_customers, df_cnf_dim_date)
+    # Data insertion in Conform tables
+    insert_data_to_dwconform_dim_customers(conn, df_skey_dim_customers, df_cnf_dim_date)
     insert_data_to_dwconform_dim_subscription(conn, df_skey_dim_subscription, df_cnf_dim_date, df_cnf_dim_device, df_cnf_dim_subscription)
+    insert_data_to_dwconform_fact_customer_netflix_metrics(conn, df_cnf_fact_customer, df_cnf_dim_date)
     conn.close()
