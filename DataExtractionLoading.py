@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 # Set up the connection parameters
 import pandas as pd
+import row as row
+from IPython.core.display_functions import display
 
 host = 'localhost'
 database = 'inbank'
@@ -40,12 +42,28 @@ df1 = pd.read_csv(netflix_data_file)
 # Filter out records with NULL UserId
 df1 = df1.dropna(subset=['User ID'])
 
-# Add the 'RecordDate' column to the DataFrame with current date
-df1['RecordDate'] = datetime.now().date()
-
 # Convert the DataFrame to a list of tuples for insertion
-data = [tuple(row) for row in df1.values]
-
+data = [
+    (
+        row['User ID'],
+        row['Subscription Type'],
+        row['Monthly Revenue'],
+        datetime.strptime(row['Join Date'], '%d.%m.%Y').strftime('%Y-%m-%d'),  # Convert to MySQL format
+        datetime.strptime(row['Last Payment Date'], '%d.%m.%Y').strftime('%Y-%m-%d'),  # Convert to MySQL format
+        row['Country'],
+        row['Age'],
+        row['Gender'],
+        row['Device'],
+        row['Plan Duration'],
+        row['Active Profiles '],
+        row['Household Profile Ind '],
+        row['Movies Watched '],
+        row['Series Watched'],
+        datetime.now().date().strftime('%Y-%m-%d')  # RecordDate with current date in datetime format
+    )
+    for _, row in df1.iterrows()
+]
+print(data)
 # Prepare the query for inserting data
 insert_query = '''
     INSERT INTO DWLoad.NetflixSubscription (

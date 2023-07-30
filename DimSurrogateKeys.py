@@ -30,10 +30,12 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
     )
     update_query = (
         "UPDATE DWSkey.DimSubscription "
-        "SET ValidToDate = %s, IsCurrent = %s "
+        "SET ValidToDate = %s, IsCurrent = %s " 
         "WHERE CustomerID = %s AND IsCurrent IS NULL;"
     )
 
+    # Create a list of tuples containing data for bulk insert
+    data = []
     for _, row in dataframe_for_stage_dim_subscription.iterrows():
         customer_id = row['CustomerID']
         subscription_duration = row['SubscriptionDuration']
@@ -62,7 +64,7 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
                 # Insert a new record with valid_from_date as current date and default values for ValidToDate and IsCurrent
                 values = (customer_id, subscription_duration, subscription_type, joining_date, device, record_date,
                           datetime.now(), valid_to_date, is_current)  # Set ValidFromDate to current date
-                cursor.execute(insert_query, values)
+                data.append(values)
             else:
                 # No changes in the fields, keep the existing record as is
                 pass
@@ -70,9 +72,19 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
             # Insert a new record with default values for ValidToDate and IsCurrent
             values = (customer_id, subscription_duration, subscription_type, joining_date, device, record_date,
                       valid_from_date, valid_to_date, is_current)  # Set ValidFromDate to current date
-            cursor.execute(insert_query, values)
+            data.append(values)
+
+    # Execute the bulk insert query with the data
+    try:
+        cursor.executemany(insert_query, data)
+        conn.commit()
+        print("Data inserted successfully for DWSkey.DimSubscription")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
 
     conn.commit()
+
 
 def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers):
     cursor = conn.cursor()
@@ -86,6 +98,8 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
         "WHERE CustomerID = %s AND IsCurrent IS NULL;"
     )
 
+    # Create a list of tuples containing data for bulk insert
+    data = []
     for _, row in dataframe_for_stage_dim_customers.iterrows():
         customer_id = row['CustomerID']
         country = row['Country']
@@ -94,8 +108,8 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
         joining_date = row['JoiningDate']
         record_date = row['RecordDate']
         valid_from_date = joining_date
-        valid_to_date = '9999-12-31'  # Set to default end date (e.g., '9999-12-31') for new records
-        is_current = '1'  # Set to default value (e.g., 'TRUE') for new records
+        valid_to_date = '9999-12-31'  # Use the filled value from the DataFrame
+        is_current = 1  # Use the filled value from the DataFrame
 
         cursor.execute(
             "SELECT * FROM DWSkey.DimCustomers WHERE CustomerID = %s AND IsCurrent IS NULL;",
@@ -114,7 +128,7 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
                 # Insert a new record with valid_from_date as current date and default values for ValidToDate and IsCurrent
                 values = (customer_id, country, gender, year_of_birth, joining_date, record_date,
                           datetime.now(), valid_to_date, is_current)  # Set ValidFromDate to current date
-                cursor.execute(insert_query, values)
+                data.append(values)
             else:
                 # No changes in the fields, keep the existing record as is
                 pass
@@ -122,7 +136,16 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
             # Insert a new record with default values for ValidToDate and IsCurrent
             values = (customer_id, country, gender, year_of_birth, joining_date, record_date,
                       valid_from_date, valid_to_date, is_current)  # Set ValidFromDate to current date
-            cursor.execute(insert_query, values)
+            data.append(values)
+
+    # Execute the bulk insert query with the data
+    try:
+        cursor.executemany(insert_query, data)
+        conn.commit()
+        print("Data inserted successfully for DWSkey.DimCustomers ")
+    except mysql.connector.IntegrityError as e:
+        print(f"Error: {e}")
+        conn.rollback()
 
     conn.commit()
 
@@ -145,4 +168,6 @@ if __name__ == "__main__":
     #Function call for data insertion
     insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
     insert_data_to_dwskey_dim_subscription(conn,dataframe_for_stage_dim_subscription)
+
+    conn.close()
 
