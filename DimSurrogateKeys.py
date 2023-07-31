@@ -48,7 +48,7 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
         is_current = '1'  # Set to default value (e.g., 'TRUE') for new records
 
         cursor.execute(
-            "SELECT * FROM DWSkey.DimSubscription WHERE CustomerID = %s AND IsCurrent IS NULL;",
+            "SELECT * FROM DWSkey.DimSubscription WHERE CustomerID = %s AND IsCurrent IS 1;",
             (customer_id,)
         )
         existing_record = cursor.fetchone()
