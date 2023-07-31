@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 import mysql.connector
 import pandas as pd
-from IPython.core.display_functions import display
 
 def read_data_from_stage_dim_subscription(conn):
     select_subscription_query = "SELECT * FROM DWStage.DimSubscription"
@@ -48,7 +47,7 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
         is_current = '1'  # Set to default value (e.g., 'TRUE') for new records
 
         cursor.execute(
-            "SELECT * FROM DWSkey.DimSubscription WHERE CustomerID = %s AND IsCurrent IS 1;",
+            "SELECT * FROM DWSkey.DimSubscription WHERE CustomerID = %s ;",
             (customer_id,)
         )
         existing_record = cursor.fetchone()
@@ -57,6 +56,7 @@ def insert_data_to_dwskey_dim_subscription(conn, dataframe_for_stage_dim_subscri
             # Check if any of the fields have different values
             existing_values = existing_record[1:-3]  # Exclude RecordKey, ValidToDate, and IsCurrent columns
             new_values = (subscription_duration, subscription_type, joining_date, device)
+
             if existing_values != new_values:
                 # Update the existing record with ValidToDate and IsCurrent
                 record_key = existing_record[0]
@@ -121,14 +121,18 @@ def insert_data_to_dwskey_dim_customers(conn, dataframe_for_stage_dim_customers)
             # Check if any of the fields have different values
             existing_values = existing_record[1:-4]  # Exclude RecordKey, ValidToDate, and IsCurrent columns
             new_values = (country, gender, year_of_birth, joining_date)
+
             if existing_values != new_values:
+
                 # Update the existing record with ValidToDate and IsCurrent
                 record_key = existing_record[0]
                 cursor.execute(update_query, (datetime.now() - timedelta(days=1), '0', record_key))
-                # Insert a new record with valid_from_date as current date and default values for ValidToDate and IsCurrent
+
+                # Insert a new record with valid_from_date as current date and default values -ValidToDate and IsCurrent
                 values = (customer_id, country, gender, year_of_birth, joining_date, record_date,
                           datetime.now(), valid_to_date, is_current)  # Set ValidFromDate to current date
                 data.append(values)
+
             else:
                 # No changes in the fields, keep the existing record as is
                 pass

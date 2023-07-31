@@ -91,7 +91,7 @@ def insert_data_FactCustomerNetflixMetrices(conn, source_data_df):
 
     cursor = conn.cursor()
 
-    # Generate the INSERT INTO query with placeholders for the values
+    # INSERT INTO query with placeholders for the values
     insert_query = (
         f"INSERT INTO {tableName} (CustomerID, MonthlyRevenue, ActiveProfiles, HouseholdProfileInd, MoviesWatched, SeriesWatched, LastPaymentDate, RecordDate)"
         f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
@@ -188,6 +188,7 @@ if __name__ == "__main__":
 
     # Fill NULL values with default values
     source_data_df.fillna(value=defaults, inplace=True)
+
     # Add a new column 'YearOfBirth' to the DataFrame by calculating it from the 'Age'
     current_year = datetime.now().year
     source_data_df['YearOfBirth'] = current_year - source_data_df['Age']

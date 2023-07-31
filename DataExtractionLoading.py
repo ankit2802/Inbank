@@ -1,3 +1,6 @@
+# Please make sure to run  this file only omce, Else it will re-insert the data due to which
+# Surrogate Keys step will detect duplicacy and will not execute
+
 import glob
 import os
 
