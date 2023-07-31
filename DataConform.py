@@ -152,8 +152,6 @@ def insert_data_to_dwconform_dim_customers(conn, df_skey_dim_customers,df_cnf_di
                                                                              'ValidToDate'
                                                                          ]]
 
-    print(dimcustomers_dimdate_RecordDate.head(5))
-
     # list of tuples containing the values to be inserted
     values_list = [tuple(row) for _, row in dimcustomers_dimdate_RecordDate.iterrows()]
 
